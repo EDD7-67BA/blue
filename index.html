@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>药盒蓝牙唤醒</title>
+<style>
+  body{font-family:Arial;max-width:420px;margin:40px auto;padding:0 20px;background:#f4f5f7;color:#2c3e50}
+  h2{text-align:center}
+  .card{background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+  button{width:100%;padding:14px;font-size:16px;background:#3498db;color:#fff;border:0;border-radius:6px;cursor:pointer}
+  button:disabled{background:#95a5a6;cursor:not-allowed}
+  #msg{margin-top:16px;line-height:1.7;font-size:14px;text-align:center}
+  .ok{color:#27ae60}
+  .err{color:#e74c3c}
+  .tip{font-size:12px;color:#888;margin-top:16px;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>💊 药盒蓝牙唤醒</h2>
+  <button id="btn" onclick="wake()">连接设备并开启热点</button>
+  <div id="msg"></div>
+  <div class="tip">
+    首次连接会要求配对，PIN 为 <b>123456</b><br>
+    iOS 用户请用 <b>Bluefy</b> 浏览器打开本页
+  </div>
+</div>
+<script>
+const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const AP_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+
+async function wake() {
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('btn');
+  msg.className = '';
+  msg.textContent = '正在连接蓝牙...';
+  btn.disabled = true;
+  try {
+    if (!navigator.bluetooth) {
+      throw new Error('当前浏览器不支持 Web Bluetooth，请用 Android Chrome 或 Bluefy');
+    }
+    // ★ 排查阶段：先列出所有设备，手动找 MedBox
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [SERVICE_UUID]
+    });
+    msg.textContent = '已选择设备：' + (device.name || '(无名)') + '，正在连接...';
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    const apChar = await service.getCharacteristic(AP_CHAR_UUID);
+    await apChar.writeValue(new TextEncoder().encode('AP'));
+    msg.className = 'ok';
+    msg.innerHTML =
+      '✅ 热点已开启<br>' +
+      '请连接 WiFi：<b>ESP32_Dispenser</b><br>' +
+      '密码：<b>1236547890</b><br>' +
+      '访问：<b>http://192.168.4.1:1573</b><br>' +
+      '<small style="color:#888">热点将在 180 秒后自动关闭</small>';
+  } catch (e) {
+    msg.className = 'err';
+    msg.textContent = '❌ ' + e.message;
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
